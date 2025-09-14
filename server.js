@@ -1,12 +1,10 @@
-// server.js
-import express from "express";
-import algorithms from "./predictionAlgorithms.js";  // Import CommonJS
-const { generatePrediction } = algorithms;
+const express = require("express");
+const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+const { generatePrediction } = require("./predictionAlgorithms.js");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Hàm parse từ chuỗi data
 function parseFromData(rawData) {
   try {
     const sessionMatch = rawData.match(/#(\d+)/);
@@ -30,23 +28,21 @@ function parseFromData(rawData) {
 
 app.get("/predict", async (req, res) => {
   try {
-    // Lấy dữ liệu từ Firebase
-    const response = await fetch("https://taixiu-database-default-rtdb.firebaseio.com/taixiu_sessions.json");
+    const response = await fetch("https://bcrapi-default-rtdb.firebaseio.com/taixiu_sessions.json");
     const data = await response.json();
 
     const history = Object.values(data);
     const lastSession = history[history.length - 1];
 
-    // Chuẩn hóa phiên
     let formatted = null;
     if (lastSession.Phien) {
       formatted = {
         Phien: lastSession.Phien,
-        Xuc_xac_1: lastSession.xuc_xac_1,
-        Xuc_xac_2: lastSession.xuc_xac_2,
-        Xuc_xac_3: lastSession.xuc_xac_3,
-        Tong: lastSession.tong,
-        Ket_qua: lastSession.ket_qua
+        Xuc_xac_1: lastSession.Xuc_xac_1 || lastSession.xuc_xac_1,
+        Xuc_xac_2: lastSession.Xuc_xac_2 || lastSession.xuc_xac_2,
+        Xuc_xac_3: lastSession.Xuc_xac_3 || lastSession.xuc_xac_3,
+        Tong: lastSession.Tong || lastSession.tong,
+        Ket_qua: lastSession.Ket_qua || lastSession.ket_qua
       };
     } else if (lastSession.data) {
       formatted = parseFromData(lastSession.data);
@@ -56,7 +52,6 @@ app.get("/predict", async (req, res) => {
       return res.status(400).json({ status: "error", message: "Không parse được dữ liệu phiên gần nhất" });
     }
 
-    // Dự đoán phiên tiếp theo
     const prediction = generatePrediction(history, {});
 
     res.json({
